@@ -4,6 +4,11 @@
 import os
 import config_data as config
 import hashlib
+from langchain_chroma import Chroma
+from langchain_community.embeddings import DashScopeEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from datetime import datetime
+
 
 def check_md5(md5_str: str):
     """检查md5字符串是否被处理"""
@@ -37,21 +42,49 @@ def get_string_md5(input_str: str, encoding='utf-8'):
 
 class KnowledgeBaseService(object):
     def __init__(self):
-        self.chroma = None         #向量存储实例Chroma向量库对象
-        self.spliter = None        #文本分割器
+        os.makedirs(config.persist_directory, exist_ok=True)     #文件夹不存在创建,存在则跳过
+        self.chroma = Chroma(
+            collection_name=config.collection_name,       #数据库表名
+            embedding_function=DashScopeEmbeddings(model="text-embedding-v4"),
+            persist_directory=config.persist_directory,   #数据库本地文件夹
+        )       #向量存储实例Chroma向量库对象
+
+        self.spliter = RecursiveCharacterTextSplitter(
+            chunk_size=config.chunk_size,            #分割后的文本段最大长度
+            chunk_overlap=config.chunk_overlap,      #分割后文本段之间的重叠部分
+            separators=config.separator,              #划分自然段落的分割符
+            length_function=len,                     #计算长度的函数
+        )        #文本分割器
 
     def upload_by_str(self,data,filename):
         """传入的字符串,进行向量化,存到向量数据库里"""
-        pass
+        #先得到md5值
+        md5_hex = get_string_md5(data)
+        if check_md5(md5_hex):
+            return "[跳过]内容已存在"
+        if len(data) > config.max_split_char_number:
+            knowlege_chunks:list[str] = self.spliter.split_text(data)
+        else:
+            knowlege_chunks = [data]
+
+        metadata = {
+            "source": filename,
+            "create_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "operator": "用户"
+        }
+
+        self.chroma.add_texts(                  #加载内容到向量库
+            texts=knowlege_chunks,
+            metadatas=[metadata for _ in knowlege_chunks]
+        )
+
+        save_md5(md5_hex)
+        return "[成功]内容已保存"
+
 
 
 
 if __name__ == '__main__':
-    # r1 = get_string_md5("周杰伦")
-    # r2 = get_string_md5("周杰伦")
-    # r3 = get_string_md5("周杰伦2")
-    # print(r1)
-    # print(r2)
-    # print(r3)
-    save_md5("7a8941058aaf4df5147042ce104568da")
-    print(check_md5("7a8941058aaf4df5147042ce104568da"))
+    service = KnowledgeBaseService()
+    r = service.upload_by_str("周杰伦","testfile")
+    print(r)
