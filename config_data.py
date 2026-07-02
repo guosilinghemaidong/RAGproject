@@ -11,3 +11,7 @@ chunk_size = 1000
 chunk_overlap = 100
 separator = ["\n\n", "\n", ".", "!", "?","。","？","！", " ", ""]
 max_split_char_number = 1000          # 每个分块的最大字符数
+
+
+similarity_threshold = 2              #检索返回匹配的文档数量
+
