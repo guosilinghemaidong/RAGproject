@@ -1,8 +1,13 @@
 """
 基于streamlit完成web网页上传
+当web页面发生变化时，会自动重新运行一遍代码
 """
-import  streamlit as st
 
+
+import  streamlit as st
+import time
+
+from knowledge_base import KnowledgeBaseService
 
 # 网页标题
 st.title("知识库更新服务")
@@ -15,6 +20,11 @@ uploader_file = st.file_uploader(
     accept_multiple_files=False,      #仅接受一个文件上传
 )
 
+
+# session_state是字典
+if "service" not in st.session_state:
+    st.session_state["service"] = KnowledgeBaseService()
+
 if uploader_file is not None:
     # 提取文件信息
     file_name = uploader_file.name
@@ -25,4 +35,8 @@ if uploader_file is not None:
 
     # get_values获取信息 -> bytes -> decode('utf-8')
     text= uploader_file.getvalue().decode('utf-8')
-    st.write(text)
+
+    with st.spinner("正在上传文件..."):#转圈动画
+        time.sleep(2)
+        result = st.session_state["service"].upload_by_str(text,file_name)
+        st.write(result)
